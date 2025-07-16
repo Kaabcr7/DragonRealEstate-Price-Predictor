@@ -84,12 +84,12 @@ To set up and run this project locally, follow these steps:
 
 Clone the Repository (if applicable, otherwise just create the directory):
 
-git clone https://github.com/your-username/DragonRealEstate.git
-cd DragonRealEstate
+git clone https://github.com/your-username/DragonRealEstate-Price-Predictor.git
+cd DragonRealEstate-Price-Predictor
 
 (Replace your-username with your actual GitHub username if cloning.)
 
-Obtain data.csv: Download the Boston Housing Dataset (e.g., data.csv) and place it directly in the DragonRealEstate/ directory.
+Obtain data.csv: Download the Boston Housing Dataset (e.g., data.csv) and place it directly in the DragonRealEstate-Price-Predictor/ directory.
 
 Create requirements.txt: Create a file named requirements.txt in the root of your project with the following content:
 
@@ -166,102 +166,46 @@ Final Test Set RMSE: The Root Mean Squared Error of the model on the unseen test
 These metrics indicate how well the model predicts housing prices, with lower RMSE values signifying better accuracy.
 
 Saving and Loading the Model
-The trained RandomForestRegressor model and its associated preprocessing pipeline are saved using joblib.
+The trained RandomForestRegressor model is saved using joblib.
 
 Saved Model File: Dragon.joblib
 
-You can load this model in a separate Python script or another notebook as follows:
+To load and use this model in a separate Python script or another notebook, you would typically load both the my_pipeline (for preprocessing) and the model.
+
+Important Note on Saving: Your DragonRealEstate.ipynb currently saves only the model (dump(model, 'Dragon.joblib')). For a fully deployable system, it's best practice to save the entire fitted preprocessing pipeline as well.
+
+To improve this for future deployments, consider modifying your notebook to save the my_pipeline object after it has been fit (e.g., after cell 39):
+
+# In your DragonRealEstate.ipynb, after cell 39 (where my_pipeline is fit_transformed)
+from joblib import dump
+dump(my_pipeline, 'Dragon_pipeline.joblib')
+
+And then, save your model as Dragon_model.joblib (or keep Dragon.joblib for the model).
+
+If you save both, you can load them like this:
 
 from joblib import load
 import pandas as pd
+import numpy as np # Needed for potential NaN values in new_data_example
 
-# Load the saved pipeline (which includes imputer and scaler)
-# And the trained model (which is the Random Forest Regressor)
-my_pipeline = load('Dragon.joblib') # In your notebook, only the model is dumped. For a complete system, you might dump the pipeline and model separately, or wrap them in another pipeline.
-model = load('Dragon.joblib') # Based on your current notebook's dump.
+# Load the saved pipeline and model
+my_pipeline_loaded = load('Dragon_pipeline.joblib')
+model_loaded = load('Dragon_model.joblib')
 
-# Example of new data (this should mimic the structure of your original features DataFrame)
-# Make sure the column names and data types are consistent with the training data
+# Example of new data (this MUST mimic the structure of your original features DataFrame)
+# Make sure the column names and data types are consistent with the training data.
+# Use np.nan for any missing values, as your pipeline's imputer expects it.
 new_data_example = pd.DataFrame({
     'CRIM': [0.00632], 'ZN': [18.0], 'INDUS': [2.31], 'CHAS': [0],
     'NOX': [0.538], 'RM': [6.575], 'AGE': [65.2], 'DIS': [4.0900],
     'RAD': [1], 'TAX': [296], 'PTRATIO': [15.3], 'B': [396.90], 'LSTAT': [4.98]
 })
 
-# First, transform the new data using the preprocessor from your pipeline
-# Note: In your notebook, the 'my_pipeline' variable itself contains the imputer and scaler.
-# If 'my_pipeline' was dumped, load that. If only 'model' was dumped, ensure your new data
-# is transformed using the same `my_pipeline` instance used during training.
-# For simplicity, if your `Dragon.joblib` only contains the RandomForestRegressor,
-# you would need to re-initialize and fit `my_pipeline` OR dump `my_pipeline` itself.
-# Based on your notebook (cell 57), only `model` is dumped. So you'd need the pipeline steps:
-# Recreate the pipeline structure if it's not saved with the model:
-from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import Pipeline
+# Transform the new data using the loaded pipeline
+processed_new_data = my_pipeline_loaded.transform(new_data_example)
 
-median_val = 6.209 # From your notebook's `housing.describe()` after fit
-imputer_recreated = SimpleImputer(strategy='median')
-# Need to fit imputer first to get statistics_ for `RM` if not loading the fitted imputer
-# In a real scenario, you would save the *fitted* imputer or the *entire pipeline*.
-# As a workaround for your specific notebook dump:
-# The `RM` median (6.209) from your notebook's `median = housing['RM'].median()` (cell 29)
-# is what the imputer uses.
-# So, for inference, you could apply it directly if you *only* saved the model:
-
-# Ensure new data has the 'RM' median filled manually if it's missing, then scale:
-new_data_example_filled = new_data_example.copy()
-if new_data_example_filled['RM'].isnull().any():
-    new_data_example_filled['RM'].fillna(median_val, inplace=True) # Use the median from training
-
-# Then, transform using the pipeline. If `my_pipeline` was not saved, you'd recreate and fit it
-# on *some training data* first to get the scalers fitted:
-# This is a critical point. In a real deployment, you must save the *fitted* `my_pipeline` object.
-# Assuming you *did* save `my_pipeline` to `my_pipeline.joblib` for a full deployable system:
-# `my_pipeline = load('my_pipeline.joblib')`
-# For your current notebook, `model` is dumped. So, you need to re-create the `my_pipeline` as if it were loaded.
-# For prediction, you need the *fitted* pipeline.
-# The simplest approach is to save the *fitted pipeline* itself.
-# In your notebook, change cell 57 to: `dump(my_pipeline, 'Dragon_pipeline.joblib')`
-# And cell 58 (or after that) to: `dump(model, 'Dragon_model.joblib')`
-
-# For now, let's assume `my_pipeline` refers to the one *just created and fitted* in the notebook.
-# This part of the explanation needs to be precise about what's dumped.
-# Based on your current code, `Dragon.joblib` is *only* the `RandomForestRegressor` model.
-# So, to make predictions, you need the *same* `my_pipeline` (imputer + scaler) that was fitted.
-# The best practice is to dump the *entire fitted pipeline*.
-# If you only dump the model, you need to re-create and fit the preprocessing pipeline (or save that too).
-
-# Let's modify the instructions for a more robust deployment (saving the pipeline too)
-
-# --- REVISED DEPLOYMENT STRATEGY (RECOMMENDED) ---
-# In your notebook, add the following *after* cell 39:
-# dump(my_pipeline, 'Dragon_pipeline.joblib')
-# Then after cell 42, add:
-# dump(model, 'Dragon_model.joblib')
-# --- END REVISED DEPLOYMENT STRATEGY ---
-
-# Assuming `Dragon_pipeline.joblib` and `Dragon_model.joblib` exist:
-# my_pipeline_loaded = load('Dragon_pipeline.joblib')
-# model_loaded = load('Dragon_model.joblib')
-# processed_new_data = my_pipeline_loaded.transform(new_data_example)
-# predicted_price = model_loaded.predict(processed_new_data)
-
-# For your current `Dragon.joblib` (which is just the `model`):
-# You *must* re-use or re-create the *fitted* preprocessing pipeline.
-# Since `my_pipeline` was fitted, we can transform `new_data_example` with it directly
-# if we are running from within the same session or have a way to load the *fitted* pipeline.
-# In a new script, if you only saved `model`, you would have to re-fit `my_pipeline`
-# on your *full training data* or save the *fitted pipeline* (`my_pipeline`) itself.
-# Your notebook's `final_predictions` and `final_rmse` already correctly use `my_pipeline.transform(X_test)`.
-
-# For this README, let's assume the user will run the notebook,
-# so `my_pipeline` and `model` are in memory for the example.
-# If running a separate script, emphasize saving the *pipeline*.
-
-# Assuming `my_pipeline` and `model` are available from running the notebook:
-processed_new_data = my_pipeline.transform(new_data_example)
-predicted_price = model.predict(processed_new_data)
+# Make predictions using the loaded model
+predicted_price = model_loaded.predict(processed_new_data)
 
 print(f"Predicted price for the new data: ${predicted_price[0]:.2f} (in $1000s)")
 
