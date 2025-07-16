@@ -1,0 +1,25 @@
+# Virtual environment
+venv/
+*.env
+.env/
+
+# Jupyter Notebook specific files
+.ipynb_checkpoints/
+*.pyc
+__pycache__/
+
+# Log files and temporary files
+*.log
+tmp/
+temp/
+
+# Large data files that might be recreated or are too big for GitHub
+# Consider if 'data.csv' or 'Dragon.joblib' are too big.
+# For this project, they are likely small enough, but for larger models/datasets,
+# you might want to uncomment these or use Git LFS.
+# data.csv
+# Dragon.joblib
+
+# Operating System generated files
+.DS_Store
+Thumbs.db
